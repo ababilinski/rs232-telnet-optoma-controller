@@ -1,6 +1,11 @@
 # RS232 Optoma Projector Controller
 This project provides a GUI interface to control your Optoma ZU725TST projector using RS232 codes. 
 
+| Controller                             | Display Controls                            | Advanced Warp                            |
+|----------------------------------------|---------------------------------------------|------------------------------------------|
+| <img src="Docs/Images/Controller.png"> | <img src="Docs/Images/DisplayControls.png"> | <img src="Docs/Images/AdvancedWarp.png"> | 
+
+
 ---
 ## Setup
 ### Option 1: Create A Python Environment 
