@@ -154,6 +154,15 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+# Default ignored files
+.idea/shelf/
+.idea/workspace.xml
+# Editor-based HTTP Client requests
+.idea/httpRequests/
+# Datasource local storage ignored files
+.idea/dataSources/
+.idea/dataSources.local.xml
+
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
