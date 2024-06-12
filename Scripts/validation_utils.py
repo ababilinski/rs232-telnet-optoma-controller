@@ -17,8 +17,15 @@ def validate_projector_id(value):
     return re.match(r'^\d{2}$', value) is not None
 
 
+def extract_digits(s):
+    match = re.search(r'\d+$', s)
+    return int(match.group()) if match else None
+    
 def get_last_int(s):
-    for i in range(len(s) - 1, -1, -1):
-        if not s[i:].isdigit():
-            return int(s[i + 1:]) if i < len(s) - 1 else None
-    return int(s)
+    try:
+        for i in range(len(s) - 1, -1, -1):
+            if not s[i:].isdigit():
+                return int(s[i + 1:]) if i < len(s) - 1 else None
+        return int(s)
+    except ValueError:
+        return -1

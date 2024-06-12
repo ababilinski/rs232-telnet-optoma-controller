@@ -20,6 +20,7 @@ lens_shift_buttons = {
 }
 
 system_buttons = {
+    "Power Status": "~XX124 1",
     "Power": "~XX140 1",
     "Power On": "~XX00 1",
     "Power Off": "~XX00 0",
@@ -151,3 +152,43 @@ gamma_settings = {
     "Film": "~XX35 1",
     "Graphics": "~XX35 3"
 }
+communication_settings = {
+    "Get Projector ID": "~XX558 18"
+}
+system_info_response = {
+    "0": "Standby Mode",
+    "1": "Warming up ...",
+    "2": "Cooling Down ...",
+    "3": "Out of Range",
+    "4": "lightsource Fail ( LED Fail)",
+    "5": "Thermal Switch Error",
+    "6": "Fan Lock",
+    "7": "Over Temperature",
+    "8": "LightSource Hours Running Out",
+    "9": "Cover Open",
+    "10": "lightsource Ignite Fail",
+    "11": "Format Board Power On Fail",
+    "12": "Color Wheel Unexpected Stop",
+    "13": "Over Temperature",
+    "14": "FAN 1 Lock",
+    "15": "FAN 2 Lock",
+    "16": "FAN 3 Lock",
+    "17": "FAN 4 Lock",
+    "18": "FAN 5 Lock",
+    "19": "LAN fail then restart",
+    "20": "LD lower than 60%",
+    "21": "LD NTC (1) Over Temperature",
+    "22": "LD NTC (2) Over Temperature",
+    "23": "High Ambient Temperature",
+    "24": "System Ready",
+    "26": "FAN 6 Lock",
+    "27": "FAN 7 Lock",
+    "28": "FAN 8 Lock",
+    "29": "FAN 9 Lock",
+    "30": "FAN 10 Lock",
+    "31": "FAN 11 Lock",
+    "32": "FAN 12 Lock",
+    "33": "FAN 13 Lock",
+    "34": "FAN 14 Lock"
+}
+
