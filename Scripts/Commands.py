@@ -42,6 +42,14 @@ advanced_warp_buttons = {
     "Warp Setting": "~XX543 6",
     "Blend Setting": "~XX169 1",
 }
+
+warp_control_buttons = {
+    "Basic": "~XX142 1",
+    "Advanced": "~XX142 5",
+    "AP": "~XX142 3",
+    "Advanced Calibration": "~XX142 5"
+}
+
 image_shift = {
     "Horizontal Shift": "~XX365 0~100",
     "Vertical Shift": "~XX366 0~100"

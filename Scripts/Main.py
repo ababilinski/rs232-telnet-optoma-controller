@@ -1,58 +1,15 @@
-﻿import re
-import telnetlib
-import sys
+﻿import sys
 
+from PyQt5.QtCore import Qt, QMutex
 from PyQt5.QtGui import QTextCharFormat, QColor, QTextCursor
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout,
     QHBoxLayout, QTabWidget, QTextEdit, QGroupBox, QGridLayout, QSlider
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QThread
+
 from commands import *
-from scripts.validation_utils import *
-
-TIMEOUT = 5
-
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QMutex
-
-
-class TelnetWorker(QThread):
-    message_received = pyqtSignal(str)
-    connection_closed = pyqtSignal()
-
-    def __init__(self, telnet, lock):
-        super().__init__()
-        self.telnet_connection = telnet
-        self.running = True
-        self.lock = lock
-        self.response = None
-
-    def run(self):
-        while self.running:
-            try:
-                self.lock.lock()
-                try:
-                    self.response = self.telnet_connection.read_until(b"\r", timeout=3).decode('ascii').rstrip().rstrip(
-                        '\r\n').rstrip('\r')
-                    if not self.response.endswith("\r"):
-                        self.response += self.telnet_connection.read_very_eager().decode('ascii').rstrip().rstrip(
-                            '\r\n').rstrip('\r')
-                except EOFError:
-                    self.message_received.emit(f"Error: {str(EOFError)}")
-                finally:
-                    self.lock.unlock()
-
-                if self.response.startswith("INFO"):
-                    self.message_received.emit(self.response)
-            except EOFError:
-                self.message_received.emit(f"Error: {str(EOFError)}")
-                self.connection_closed.emit()
-                break
-
-    def stop(self):
-        self.running = False
-        self.quit()
-        self.wait()
+from telnet_worker import *
+from validation_utils import *
 
 
 class ProjectorController(QWidget):
@@ -60,6 +17,9 @@ class ProjectorController(QWidget):
         super().__init__()
         self.telnet_connection = None
         self.telnet_worker = None
+        self.current_host = None
+        self.current_port = None
+        self.current_projector_id = None
         self.lock = QMutex()
         self.initUI()
 
@@ -86,20 +46,21 @@ class ProjectorController(QWidget):
     def setup_layouts(self):
         self.main_layout = QVBoxLayout()
 
-        connection_layout = self.create_connection_layout()
-        custom_command_layout = self.create_custom_command_layout()
-        button_layout = self.create_button_layout()
-
+        self.connection_layout = self.create_connection_layout()
+        self.custom_command_layout = self.create_custom_command_layout()
+        self.button_layout = self.create_button_layout()
+        self.tabs_layout_widget = self.create_tab_widget()
+        
         self.command_output = QTextEdit()
         self.command_output.setReadOnly(True)
-        self.status_label = QLabel('Connection Not Tested')
+        self.status_label = QLabel('Disconnected')
         self.status_label.setStyleSheet('color: red')
-
-        self.main_layout.addLayout(connection_layout)
+       
+        self.main_layout.addLayout(self.connection_layout)
         self.main_layout.addWidget(self.status_label)
-        self.main_layout.addLayout(button_layout)
-        self.main_layout.addWidget(self.create_tab_widget())
-        self.main_layout.addLayout(custom_command_layout)
+        self.main_layout.addLayout(self.button_layout)
+        self.main_layout.addWidget(self.tabs_layout_widget)
+        self.main_layout.addLayout(self.custom_command_layout)
         self.main_layout.addWidget(self.command_output)
         self.setLayout(self.main_layout)
 
@@ -112,8 +73,12 @@ class ProjectorController(QWidget):
         self.projector_id_input = QLineEdit('01')
         self.projector_id_input.setPlaceholderText('ID')
 
-        self.connect_button = QPushButton('Test Connection')
+        self.connect_button = QPushButton('Connect')
         self.connect_button.clicked.connect(self.connect)
+
+        self.host_input.textChanged.connect(self.disconnect)
+        self.port_input.textChanged.connect(self.disconnect)
+        self.projector_id_input.textChanged.connect(self.disconnect)
 
         layout.addWidget(QLabel('IP Address:'))
         layout.addWidget(self.host_input)
@@ -124,11 +89,36 @@ class ProjectorController(QWidget):
         layout.addWidget(self.connect_button)
         return layout
 
-    def update_power_status(self):
+    def disconnect(self):
+
+        new_host = self.host_input.text()
+        new_port = self.port_input.text()
+        new_projector_id = self.projector_id_input.text().zfill(2)
+
+        if (new_host != self.current_host or
+                new_port != self.current_port or
+                new_projector_id != self.current_projector_id):
+            if self.telnet_worker:
+                self.telnet_worker.stop()
+            if self.telnet_connection:
+                self.telnet_connection.close()
+                self.telnet_connection = None
+                self.set_ui_enabled(False)
+                self.status_label.setText('Disconnected')
+                self.status_label.setStyleSheet('color: red')
+                self.update_output('Disconnected', "red")
+
+    def read_projector_settings(self):
         value = self.read_command(system_buttons["Power Status"], True)
         if value > 0:
             self.power_status_label.setText('Status: On')
             self.power_status_label.setStyleSheet('color: green')
+            self.slider_refresh(self.contrast_slider.findChild(QSlider),
+                                self.contrast_slider.findChild(QLabel),
+                                picture_settings_slider['Get Contrast'])
+            self.slider_refresh(self.brightness_slider.findChild(QSlider),
+                                self.brightness_slider.findChild(QLabel),
+                                picture_settings_slider['Get Brightness'])
         else:
             self.power_status_label.setText('Status: Off')
             self.power_status_label.setStyleSheet('color: red')
@@ -284,11 +274,13 @@ class ProjectorController(QWidget):
         tab = QWidget()
         layout = QVBoxLayout()
 
+        warp_type_group = self.create_button_group("Warp Type", warp_control_buttons)
         grid_background_group = self.create_button_group("Grid Background", grid_background_buttons)
         warp_inner_group = self.create_button_group("Warp Inner", advanced_warp_inner_buttons)
         grid_color_group = self.create_button_group("Grid Color", grid_color_buttons)
         grid_points_group = self.create_button_group("Grid Points", grid_points_buttons)
 
+        layout.addWidget(warp_type_group)
         layout.addWidget(grid_background_group)
         layout.addWidget(warp_inner_group)
         layout.addWidget(grid_color_group)
@@ -389,21 +381,29 @@ class ProjectorController(QWidget):
         return tab
 
     def set_ui_enabled(self, enabled):
-        for widget in self.findChildren(QWidget):
-            widget.setEnabled(enabled)
-            if not enabled:
-                widget.setStyleSheet("color: gray;")
-            else:
-                widget.setStyleSheet("")
 
-        self.host_input.setEnabled(True)
-        self.host_input.setStyleSheet("")
-        self.port_input.setEnabled(True)
-        self.port_input.setStyleSheet("")
-        self.projector_id_input.setEnabled(True)
-        self.projector_id_input.setStyleSheet("")
-        self.connect_button.setEnabled(True)
-        self.connect_button.setStyleSheet("")
+        # Toggle the enabled state of the tab widget and layouts
+        self.tabs_layout_widget.setEnabled(enabled)
+        self.button_layout.setEnabled(enabled)
+        self.custom_command_layout.setEnabled(enabled)
+
+    
+        # Apply the style if the UI is disabled
+        if not enabled:
+            self.tabs_layout_widget.setStyleSheet("color: gray;")
+            for layout in [self.button_layout, self.custom_command_layout]:
+                for i in range(layout.count()):
+                    widget = layout.itemAt(i).widget()
+                    if widget is not None:
+                        widget.setStyleSheet("color: gray;")
+        else:
+            # Reset the style to default when enabled
+            self.tabs_layout_widget.setStyleSheet("")
+            for layout in [self.button_layout, self.custom_command_layout]:
+                for i in range(layout.count()):
+                    widget = layout.itemAt(i).widget()
+                    if widget is not None:
+                        widget.setStyleSheet("")
 
     def valid_connection(self) -> bool:
         if not validate_ip(self.host_input.text()) or not validate_port(
@@ -439,19 +439,16 @@ class ProjectorController(QWidget):
             if not quite:
                 self.update_output(f'Sending Command: [{final_command}]')
             try:
-                self.lock.lock()
-                try:
+                # self.lock.lock()
+                # try:
 
-                    self.telnet_connection.write(final_command.encode('ascii') + b"\n")
-                    response = self.telnet_connection.read_until(b"\r", timeout=2).decode('ascii').strip().strip(
-                        '\r\n').strip('\r')
-                    if not response.endswith("\r"):
-                        response += self.telnet_connection.read_very_eager().decode('ascii').strip().strip(
-                            '\r\n').strip(
-                            '\r')
-                    result = {'success': True, 'code': response, 'error': ""}
-                finally:
-                    self.lock.unlock()
+                self.telnet_connection.write(final_command.encode('ascii') + b"\n")
+                response = self.telnet_connection.read_until(b"\r", timeout=TIMEOUT).decode('ascii').rstrip()
+                if not response.endswith("\r"):
+                    response += self.telnet_connection.read_very_eager().decode('ascii').rstrip()
+                result = {'success': True, 'code': response, 'error': ""}
+            # finally:
+            #     self.lock.unlock()
             except Exception as e:
                 result = {'success': False, 'code': "", 'error': str(e)}
 
@@ -483,20 +480,17 @@ class ProjectorController(QWidget):
             self.update_output(f'Close Error: {str(e)}', "red")
         try:
             self.telnet_connection = telnetlib.Telnet(host, int(port), TIMEOUT)
-            self.status_label.setText("Connection Test Passed")
+            self.set_ui_enabled(True)
+            self.status_label.setText("Connected")
             self.status_label.setStyleSheet('color: green')
             self.update_output("Connected successfully", "green")
-            self.set_ui_enabled(True)
-            self.update_power_status()
-            self.slider_refresh(self.contrast_slider.findChild(QSlider),
-                                self.contrast_slider.findChild(QLabel),
-                                picture_settings_slider['Get Contrast'])
-            self.slider_refresh(self.brightness_slider.findChild(QSlider),
-                                self.brightness_slider.findChild(QLabel),
-                                picture_settings_slider['Get Brightness'])
+            self.current_host = host
+            self.current_port = port
+            self.current_projector_id = self.projector_id_input.text().zfill(2)
+            self.read_projector_settings()
 
             # Start the Telnet worker to listen for messages
-            self.telnet_worker = TelnetWorker(self.telnet_connection, self.lock)
+            self.telnet_worker = TelnetWorker(host, int(port), self.lock)
             self.telnet_worker.message_received.connect(self.handle_system_message)
             self.telnet_worker.connection_closed.connect(self.handle_connection_closed)
             self.telnet_worker.start()
@@ -506,7 +500,7 @@ class ProjectorController(QWidget):
             self.status_label.setStyleSheet('color: red')
             self.update_output(f'Error: {str(e)}', "red")
             self.telnet_connection = None
-            #self.set_ui_enabled(False)
+            self.set_ui_enabled(False)
 
     def handle_system_message(self, message):
         try:
@@ -520,6 +514,7 @@ class ProjectorController(QWidget):
                     elif int_value == 24:
                         self.power_status_label.setText('Status: On')
                         self.power_status_label.setStyleSheet('color: green')
+
                     else:
                         self.power_status_label.setText(f'Status: {system_info_response[str(int_value)]}')
                         self.power_status_label.setStyleSheet('color: gray')
