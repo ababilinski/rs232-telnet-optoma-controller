@@ -3,8 +3,8 @@
 from PyQt5.QtCore import Qt, QMutex
 from PyQt5.QtGui import QTextCharFormat, QColor, QTextCursor
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout,
-    QHBoxLayout, QTabWidget, QTextEdit, QGroupBox, QGridLayout, QSlider
+    QApplication, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout,
+    QHBoxLayout, QTabWidget, QTextEdit, QGroupBox, QGridLayout, QSlider, QMenu
 )
 
 from commands import *
@@ -13,8 +13,8 @@ from validation_utils import *
 
 
 class ProjectorController(QWidget):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self.telnet_connection = None
         self.telnet_worker = None
         self.current_host = None
@@ -37,10 +37,12 @@ class ProjectorController(QWidget):
             QPushButton { background-color: #5c5c5c; color: #dcdcdc; border: 1px solid #7c7c7c; padding: 5px; }
             QPushButton:pressed { background-color: #7c7c7c; }
             QLabel { color: #dcdcdc; }
-            QTabWidget::pane { border: 1px solid #5c5c5c; }
-            QTabBar::tab { background: #3c3c3c; padding: 10px; }
-            QTabBar::tab:selected { background: #5c5c5c; }
-            QTabBar::tab:hover { background: #7c7c7c; }
+            QTabWidget::pane { background-color: #2d2d2d; border: 1px solid #5c5c5c; }
+            QTabWidget { background-color: #2d2d2d; }
+            QTabBar::tab { background: #3c3c3c; color: #dcdcdc; padding: 10px; border: 1px solid #5c5c5c; }
+            QTabBar::tab:selected { background: #5c5c5c; color: #dcdcdc; }
+            QTabBar::tab:hover { background: #7c7c7c; color: #dcdcdc; }
+            QTabBar::tab:!selected { margin-top: 2px; }
         """)
 
     def setup_layouts(self):
@@ -50,12 +52,12 @@ class ProjectorController(QWidget):
         self.custom_command_layout = self.create_custom_command_layout()
         self.button_layout = self.create_button_layout()
         self.tabs_layout_widget = self.create_tab_widget()
-        
+
         self.command_output = QTextEdit()
         self.command_output.setReadOnly(True)
         self.status_label = QLabel('Disconnected')
         self.status_label.setStyleSheet('color: red')
-       
+
         self.main_layout.addLayout(self.connection_layout)
         self.main_layout.addWidget(self.status_label)
         self.main_layout.addLayout(self.button_layout)
@@ -66,7 +68,7 @@ class ProjectorController(QWidget):
 
     def create_connection_layout(self):
         layout = QHBoxLayout()
-        self.host_input = QLineEdit('172.18.XX.XX')
+        self.host_input = QLineEdit('172.18.41.12')
         self.host_input.setPlaceholderText('IP Address')
         self.port_input = QLineEdit('23')
         self.port_input.setPlaceholderText('Port')
@@ -387,7 +389,6 @@ class ProjectorController(QWidget):
         self.button_layout.setEnabled(enabled)
         self.custom_command_layout.setEnabled(enabled)
 
-    
         # Apply the style if the UI is disabled
         if not enabled:
             self.tabs_layout_widget.setStyleSheet("color: gray;")
@@ -548,8 +549,65 @@ class ProjectorController(QWidget):
         self.command_output.ensureCursorVisible()
 
 
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Multi Projector Controller")
+        self.setGeometry(100, 100, 800, 600)
+        self.set_dark_theme()
+
+        self.tab_widget = QTabWidget()
+        self.setCentralWidget(self.tab_widget)
+
+        self.add_projector_controller("Projector 1")
+        self.add_projector_controller("Projector 2")
+        self.add_projector_controller("Projector 3")
+
+        self.add_tab_button = QPushButton("Add Tab")
+        self.add_tab_button.clicked.connect(self.add_new_tab)
+        self.tab_widget.setCornerWidget(self.add_tab_button, Qt.TopRightCorner)
+
+        self.tab_widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tab_widget.customContextMenuRequested.connect(self.show_context_menu)
+
+    def set_dark_theme(self):
+        self.setStyleSheet("""
+            QWidget { background-color: #2d2d2d; color: #dcdcdc; }
+            QLineEdit, QTextEdit { background-color: #3c3c3c; color: #dcdcdc; border: 1px solid #5c5c5c; }
+            QPushButton { background-color: #5c5c5c; color: #dcdcdc; border: 1px solid #7c7c7c; padding: 5px; }
+            QPushButton:pressed { background-color: #7c7c7c; }
+            QLabel { color: #dcdcdc; }
+            QTabWidget::pane { background-color: #2d2d2d; border: 1px solid #5c5c5c; }
+            QTabWidget { background-color: #2d2d2d; }
+            QTabBar::tab { background: #3c3c3c; color: #dcdcdc; padding: 10px; border: 1px solid #5c5c5c; }
+            QTabBar::tab:selected { background: #5c5c5c; color: #dcdcdc; }
+            QTabBar::tab:hover { background: #7c7c7c; color: #dcdcdc; }
+            QTabBar::tab:!selected { margin-top: 2px; }
+        """)
+
+    def add_projector_controller(self, name):
+        projector_controller = ProjectorController()
+        self.tab_widget.addTab(projector_controller, name)
+
+    def add_new_tab(self):
+        tab_count = self.tab_widget.count() + 1
+        self.add_projector_controller(f"Projector {tab_count}")
+
+    def show_context_menu(self, position):
+        menu = QMenu()
+        remove_action = menu.addAction("Remove Tab")
+        action = menu.exec_(self.tab_widget.mapToGlobal(position))
+        if action == remove_action:
+            self.remove_current_tab()
+
+    def remove_current_tab(self):
+        current_index = self.tab_widget.currentIndex()
+        if current_index != -1:
+            self.tab_widget.removeTab(current_index)
+
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    ex = ProjectorController()
-    ex.show()
+    main_window = MainWindow()
+    main_window.show()
     sys.exit(app.exec_())
