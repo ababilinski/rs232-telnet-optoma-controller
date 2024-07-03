@@ -1,6 +1,6 @@
 ﻿import sys
 
-from PyQt5.QtCore import Qt, QMutex
+from PyQt5.QtCore import Qt, QMutex, QSettings
 from PyQt5.QtGui import QTextCharFormat, QColor, QTextCursor
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout,
@@ -13,13 +13,22 @@ from validation_utils import *
 
 
 class ProjectorController(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, host='172.18.41.12', port="23", projector_id='01', parent=None, settings=None):
         super().__init__(parent)
         self.telnet_connection = None
         self.telnet_worker = None
         self.current_host = None
         self.current_port = None
         self.current_projector_id = None
+
+        if settings:
+            self.initial_host = settings.value("host", host)
+            self.initial_port = settings.value("port", port)
+            self.initial_projector_id = settings.value("projector_id", projector_id)
+        else:
+            self.initial_host = host
+            self.initial_port = port
+            self.initial_projector_id = projector_id
         self.lock = QMutex()
         self.initUI()
 
@@ -68,11 +77,11 @@ class ProjectorController(QWidget):
 
     def create_connection_layout(self):
         layout = QHBoxLayout()
-        self.host_input = QLineEdit('172.18.41.12')
+        self.host_input = QLineEdit(self.initial_host)
         self.host_input.setPlaceholderText('IP Address')
-        self.port_input = QLineEdit('23')
+        self.port_input = QLineEdit(self.initial_port)
         self.port_input.setPlaceholderText('Port')
-        self.projector_id_input = QLineEdit('01')
+        self.projector_id_input = QLineEdit(self.initial_projector_id)
         self.projector_id_input.setPlaceholderText('ID')
 
         self.connect_button = QPushButton('Connect')
@@ -537,6 +546,10 @@ class ProjectorController(QWidget):
             self.telnet_connection.close()
         event.accept()
 
+    def save_settings(self, settings, tab_index):
+        settings.setValue(f"host", self.host_input.text())
+        settings.setValue(f"port", self.port_input.text())
+        settings.setValue(f"projector_id", self.projector_id_input.text())
     def update_output(self, text, color=None):
         cursor = self.command_output.textCursor()
         cursor.movePosition(QTextCursor.End)
@@ -556,12 +569,16 @@ class MainWindow(QMainWindow):
         self.setGeometry(100, 100, 800, 600)
         self.set_dark_theme()
 
+        self.settings = QSettings("Babilin Apps", "Optoma Controller")
+        
         self.tab_widget = QTabWidget()
         self.setCentralWidget(self.tab_widget)
-
-        self.add_projector_controller("Projector 1")
-        self.add_projector_controller("Projector 2")
-        self.add_projector_controller("Projector 3")
+        if self.settings.value("tab_count", 0, int) > 0:
+            self.load_tabs()
+        else:
+            self.add_projector_controller(name="Projector 1", host='172.18.41.12', port='23', projector_id='01')
+            self.add_projector_controller(name="Projector 2", host='172.18.41.13', port='23', projector_id='02')
+            self.add_projector_controller(name="Projector 3", host='172.18.41.14', port='23', projector_id='03')
 
         self.add_tab_button = QPushButton("Add Tab")
         self.add_tab_button.clicked.connect(self.add_new_tab)
@@ -585,13 +602,42 @@ class MainWindow(QMainWindow):
             QTabBar::tab:!selected { margin-top: 2px; }
         """)
 
-    def add_projector_controller(self, name):
-        projector_controller = ProjectorController()
+    def add_projector_controller(self, name, host, port, projector_id):
+        projector_controller = ProjectorController(host, port, projector_id)
         self.tab_widget.addTab(projector_controller, name)
+
+    def add_projector_controller_from_settings(self, name, settings=None):
+        projector_controller = ProjectorController(settings=settings)
+        self.tab_widget.addTab(projector_controller, name)
+
+    def load_tabs(self):
+        tab_count = self.settings.value("tab_count", 0, int)
+        for i in range(tab_count):
+            tab_settings = QSettings("Babilin Apps", f"Optoma Controller/Projector {i}")
+            tab_name = tab_settings.value(f"name", f"Projector {i + 1}")
+            host = tab_settings.value("host", "0")
+            port = tab_settings.value("port", "0")
+            projector_id = tab_settings.value("projector_id", "0")
+            print(f'loading tab: {tab_name}: {host}, {port}, {projector_id}')
+            self.add_projector_controller_from_settings(tab_name, settings=tab_settings)
+
+    def save_tabs(self):
+        self.settings.setValue("tab_count", self.tab_widget.count())
+
+        for i in range(self.tab_widget.count()):
+            tab_name = self.tab_widget.tabText(i)
+            tab_settings = QSettings("Babilin Apps", f"Optoma Controller/Projector {i}")
+            widget = self.tab_widget.widget(i)
+            tab_settings.setValue(f"name", self.tab_widget.tabText(i))
+            widget.save_settings(tab_settings, i)
+            host = tab_settings.value("host", "0")
+            port = tab_settings.value("port", "0")
+            projector_id = tab_settings.value("projector_id", "0")
+            print(f'saving tab: {tab_name}: {host}, {port}, {projector_id}')
 
     def add_new_tab(self):
         tab_count = self.tab_widget.count() + 1
-        self.add_projector_controller(f"Projector {tab_count}")
+        self.add_projector_controller(f"Projector {tab_count}", host='172.18.41.12', port='23', projector_id='01')
 
     def show_context_menu(self, position):
         menu = QMenu()
@@ -605,7 +651,10 @@ class MainWindow(QMainWindow):
         if current_index != -1:
             self.tab_widget.removeTab(current_index)
 
-
+    def closeEvent(self, event):
+        self.save_tabs()
+        event.accept()
+        
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     main_window = MainWindow()
