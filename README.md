@@ -20,8 +20,10 @@ This project provides a GUI interface to control your Optoma ZU725TST projector 
 4. Run app
    1. Call `python main.py` or `python3 main.py`
 
-### Option 2: Install app from the releases page (__Coming Soon__)
-1. --> Coming Soon
+### Option 2: Install app from the releases page (Windows)
+1. Download zip from [release page](https://github.com/ababilinski/rs232-telnet-optoma-controller/releases)
+2. Unzip file
+3. Run **Telnet Optoma Controller.exe**
 ---
 
 ## UI Instructions
