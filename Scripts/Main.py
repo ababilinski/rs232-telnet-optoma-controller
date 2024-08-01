@@ -1,7 +1,7 @@
 ﻿import sys
 
 from PyQt5.QtCore import Qt, QMutex, QSettings
-from PyQt5.QtGui import QTextCharFormat, QColor, QTextCursor
+from PyQt5.QtGui import QTextCharFormat, QColor, QTextCursor, QIcon
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout,
     QHBoxLayout, QTabWidget, QTextEdit, QGroupBox, QGridLayout, QSlider, QMenu
@@ -33,7 +33,8 @@ class ProjectorController(QWidget):
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle('Projector Controller')
+        self.setWindowTitle('Telnet Optoma Controller')
+        #self.setWindowIcon(QIcon("icon.ico"))  # Set the window icon
         self.setGeometry(100, 100, 600, 800)
         self.set_dark_theme()
         self.setup_layouts()
@@ -565,7 +566,8 @@ class ProjectorController(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Multi Projector Controller")
+        self.setWindowTitle("Telnet Optoma Controller")
+        #self.setWindowIcon(QIcon("icon.ico"))  # Set the window icon
         self.setGeometry(100, 100, 800, 600)
         self.set_dark_theme()
 
@@ -584,6 +586,25 @@ class MainWindow(QMainWindow):
         self.add_tab_button.clicked.connect(self.add_new_tab)
         self.tab_widget.setCornerWidget(self.add_tab_button, Qt.TopRightCorner)
 
+        # Add Power On/Off All buttons
+        self.power_on_all_button = QPushButton("Power On All")
+        self.power_off_all_button = QPushButton("Power Off All")
+        self.power_on_all_button.clicked.connect(self.power_on_all)
+        self.power_off_all_button.clicked.connect(self.power_off_all)
+    
+        # Layout for the Power On/Off All buttons
+        power_buttons_layout = QHBoxLayout()
+        power_buttons_layout.addWidget(self.power_on_all_button)
+        power_buttons_layout.addWidget(self.power_off_all_button)
+
+        # Add to main layout
+        main_layout = QVBoxLayout()
+        main_layout.addLayout(power_buttons_layout)
+        main_layout.addWidget(self.tab_widget)
+        central_widget = QWidget()
+        central_widget.setLayout(main_layout)
+        self.setCentralWidget(central_widget)
+        
         self.tab_widget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tab_widget.customContextMenuRequested.connect(self.show_context_menu)
 
@@ -654,9 +675,21 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         self.save_tabs()
         event.accept()
-        
+
+    def power_on_all(self):
+        for i in range(self.tab_widget.count()):
+            tab = self.tab_widget.widget(i)
+            tab.connect()
+            tab.send_command(system_buttons['Power On'])
+
+    def power_off_all(self):
+        for i in range(self.tab_widget.count()):
+            tab = self.tab_widget.widget(i)
+            tab.connect()
+            tab.send_command(system_buttons['Power Off'])
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     main_window = MainWindow()
+    app.setWindowIcon(QIcon("icon.png"))  # Set the icon for the entire application
     main_window.show()
     sys.exit(app.exec_())
