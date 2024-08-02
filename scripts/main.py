@@ -1,24 +1,16 @@
-﻿import os
-import platform
-import sys
+﻿import sys
 
-from PyQt5.QtCore import Qt, QMutex, QSettings, QCoreApplication
+from PyQt5.QtCore import Qt, QMutex, QSettings
 from PyQt5.QtGui import QTextCharFormat, QColor, QTextCursor, QIcon
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout,
-    QHBoxLayout, QTabWidget, QTextEdit, QGroupBox, QGridLayout, QSlider, QMenu, QStyleFactory
+    QHBoxLayout, QTabWidget, QTextEdit, QGroupBox, QGridLayout, QSlider, QMenu
 )
 
 from commands import *
 from telnet_worker import *
 from validation_utils import *
-import ctypes
 
-# Set the DPI awareness in Windows
-try:
-    ctypes.windll.shcore.SetProcessDpiAwareness(1)
-except Exception as e:
-    print(e)
 
 class ProjectorController(QWidget):
     def __init__(self, host='172.18.41.12', port="23", projector_id='01', parent=None, settings=None):
@@ -42,27 +34,26 @@ class ProjectorController(QWidget):
 
     def initUI(self):
         self.setWindowTitle('Telnet Optoma Controller')
-        self.setGeometry(100, 100, 480, 640)  # Set a default size
-
+        #self.setWindowIcon(QIcon("icon.ico"))  # Set the window icon
+        self.setGeometry(100, 100, 600, 800)
         self.set_dark_theme()
         self.setup_layouts()
         self.set_ui_enabled(False)
 
     def set_dark_theme(self):
-        if platform.system() == "Windows":
-            self.setStyleSheet("""
-                QWidget { background-color: #2d2d2d; color: #dcdcdc; }
-                QLineEdit, QTextEdit { background-color: #3c3c3c; color: #dcdcdc; border: 1px solid #5c5c5c; }
-                QPushButton { background-color: #5c5c5c; color: #dcdcdc; border: 1px solid #7c7c7c; padding: 5px; }
-                QPushButton:pressed { background-color: #7c7c7c; }
-                QLabel { color: #dcdcdc; }
-                QTabWidget::pane { background-color: #2d2d2d; border: 1px solid #5c5c5c; }
-                QTabWidget { background-color: #2d2d2d; }
-                QTabBar::tab { background: #3c3c3c; color: #dcdcdc; padding: 10px; border: 1px solid #5c5c5c; }
-                QTabBar::tab:selected { background: #5c5c5c; color: #dcdcdc; }
-                QTabBar::tab:hover { background: #7c7c7c; color: #dcdcdc; }
-                QTabBar::tab:!selected { margin-top: 2px; }
-            """)
+        self.setStyleSheet("""
+            QWidget { background-color: #2d2d2d; color: #dcdcdc; }
+            QLineEdit, QTextEdit { background-color: #3c3c3c; color: #dcdcdc; border: 1px solid #5c5c5c; }
+            QPushButton { background-color: #5c5c5c; color: #dcdcdc; border: 1px solid #7c7c7c; padding: 5px; }
+            QPushButton:pressed { background-color: #7c7c7c; }
+            QLabel { color: #dcdcdc; }
+            QTabWidget::pane { background-color: #2d2d2d; border: 1px solid #5c5c5c; }
+            QTabWidget { background-color: #2d2d2d; }
+            QTabBar::tab { background: #3c3c3c; color: #dcdcdc; padding: 10px; border: 1px solid #5c5c5c; }
+            QTabBar::tab:selected { background: #5c5c5c; color: #dcdcdc; }
+            QTabBar::tab:hover { background: #7c7c7c; color: #dcdcdc; }
+            QTabBar::tab:!selected { margin-top: 2px; }
+        """)
 
     def setup_layouts(self):
         self.main_layout = QVBoxLayout()
@@ -83,8 +74,6 @@ class ProjectorController(QWidget):
         self.main_layout.addWidget(self.tabs_layout_widget)
         self.main_layout.addLayout(self.custom_command_layout)
         self.main_layout.addWidget(self.command_output)
-
-
         self.setLayout(self.main_layout)
 
     def create_connection_layout(self):
@@ -410,15 +399,15 @@ class ProjectorController(QWidget):
         self.button_layout.setEnabled(enabled)
         self.custom_command_layout.setEnabled(enabled)
 
-
-        if not enabled and platform.system() == "Windows":
+        # Apply the style if the UI is disabled
+        if not enabled:
             self.tabs_layout_widget.setStyleSheet("color: gray;")
             for layout in [self.button_layout, self.custom_command_layout]:
                 for i in range(layout.count()):
                     widget = layout.itemAt(i).widget()
                     if widget is not None:
                         widget.setStyleSheet("color: gray;")
-        elif platform.system() == "Windows":
+        else:
             # Reset the style to default when enabled
             self.tabs_layout_widget.setStyleSheet("")
             for layout in [self.button_layout, self.custom_command_layout]:
@@ -575,20 +564,11 @@ class ProjectorController(QWidget):
 
 
 class MainWindow(QMainWindow):
-    # os.environ["QT_SCALE_FACTOR"] = "1.0"
-    # QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
-    # # Enable High DPI Scaling
-    # QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
-
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Telnet Optoma Controller")
-        # Get screen size and scaling factor
-        # Reference resolution
-        self.setWindowTitle('Telnet Optoma Controller')
-        self.setGeometry(100, 100, 480, 640)  # Set a default size
-
-
+        #self.setWindowIcon(QIcon("icon.ico"))  # Set the window icon
+        self.setGeometry(100, 100, 800, 600)
         self.set_dark_theme()
 
         self.settings = QSettings("Babilin Apps", "Optoma Controller")
@@ -629,20 +609,19 @@ class MainWindow(QMainWindow):
         self.tab_widget.customContextMenuRequested.connect(self.show_context_menu)
 
     def set_dark_theme(self):
-        if platform.system() == "Windows":
-            self.setStyleSheet("""
-                QWidget { background-color: #2d2d2d; color: #dcdcdc; }
-                QLineEdit, QTextEdit { background-color: #3c3c3c; color: #dcdcdc; border: 1px solid #5c5c5c; }
-                QPushButton { background-color: #5c5c5c; color: #dcdcdc; border: 1px solid #7c7c7c; padding: 5px; }
-                QPushButton:pressed { background-color: #7c7c7c; }
-                QLabel { color: #dcdcdc; }
-                QTabWidget::pane { background-color: #2d2d2d; border: 1px solid #5c5c5c; }
-                QTabWidget { background-color: #2d2d2d; }
-                QTabBar::tab { background: #3c3c3c; color: #dcdcdc; padding: 10px; border: 1px solid #5c5c5c; }
-                QTabBar::tab:selected { background: #5c5c5c; color: #dcdcdc; }
-                QTabBar::tab:hover { background: #7c7c7c; color: #dcdcdc; }
-                QTabBar::tab:!selected { margin-top: 2px; }
-            """)
+        self.setStyleSheet("""
+            QWidget { background-color: #2d2d2d; color: #dcdcdc; }
+            QLineEdit, QTextEdit { background-color: #3c3c3c; color: #dcdcdc; border: 1px solid #5c5c5c; }
+            QPushButton { background-color: #5c5c5c; color: #dcdcdc; border: 1px solid #7c7c7c; padding: 5px; }
+            QPushButton:pressed { background-color: #7c7c7c; }
+            QLabel { color: #dcdcdc; }
+            QTabWidget::pane { background-color: #2d2d2d; border: 1px solid #5c5c5c; }
+            QTabWidget { background-color: #2d2d2d; }
+            QTabBar::tab { background: #3c3c3c; color: #dcdcdc; padding: 10px; border: 1px solid #5c5c5c; }
+            QTabBar::tab:selected { background: #5c5c5c; color: #dcdcdc; }
+            QTabBar::tab:hover { background: #7c7c7c; color: #dcdcdc; }
+            QTabBar::tab:!selected { margin-top: 2px; }
+        """)
 
     def add_projector_controller(self, name, host, port, projector_id):
         projector_controller = ProjectorController(host, port, projector_id)
@@ -708,32 +687,9 @@ class MainWindow(QMainWindow):
             tab = self.tab_widget.widget(i)
             tab.connect()
             tab.send_command(system_buttons['Power Off'])
-
-
-os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
-os.environ["QT_SCALE_FACTOR"] = ".75"
-QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
-# Enable High DPI Scaling
-QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
-
-QCoreApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
 if __name__ == '__main__':
-
-
-
     app = QApplication(sys.argv)
-    print(f"Using AA_EnableHighDpiScaling > {QApplication.testAttribute(Qt.AA_EnableHighDpiScaling)}")
-    print(f"Using AA_UseHighDpiPixmaps    > {QApplication.testAttribute(Qt.AA_UseHighDpiPixmaps)}")
-
     main_window = MainWindow()
-    print(sys.argv)
-    print(QStyleFactory.keys())
-    print(QApplication.style().objectName())
-
-    print(QApplication.style().metaObject().className())
-    print(QApplication.style().metaObject())
-    if platform.system() == "Windows":
-        # Set the icon for the entire application (not needed for py2app)
-        app.setWindowIcon(QIcon("icon.png"))
+    app.setWindowIcon(QIcon("icon.png"))  # Set the icon for the entire application
     main_window.show()
     sys.exit(app.exec_())
