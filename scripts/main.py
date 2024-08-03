@@ -2,6 +2,7 @@
 import platform
 import sys
 
+import qdarktheme
 from PyQt5.QtCore import Qt, QMutex, QSettings, QCoreApplication
 from PyQt5.QtGui import QTextCharFormat, QColor, QTextCursor, QIcon
 from PyQt5.QtWidgets import (
@@ -44,12 +45,12 @@ class ProjectorController(QWidget):
 
     def initUI(self):
         self.setWindowTitle('Telnet Optoma Controller')
-   
 
-        self.set_dark_theme()
+        self.setMaximumSize(588, 900)
+        self.resize(588, 800)
+        #self.set_dark_theme()
         self.setup_layouts()
         self.set_ui_enabled(False)
-
     def set_dark_theme(self):
         if platform.system() == "Windows":
             self.setStyleSheet("""
@@ -320,7 +321,6 @@ class ProjectorController(QWidget):
         slider.setValue(value)
         slider.blockSignals(False)
         label_text = label.text().split(':')[0]
-        self.update_output(f'Updated {label_text} slider: to {value}', "black")
         label.setText(f"{label_text}: {value}")
 
     def send_slider_command(self, command_prefix, value, label: QLabel):
@@ -424,21 +424,20 @@ class ProjectorController(QWidget):
         self.button_layout.setEnabled(enabled)
         self.custom_command_layout.setEnabled(enabled)
 
-        if not enabled and platform.system() == "Windows":
-            self.tabs_layout_widget.setStyleSheet("color: gray;")
-            for layout in [self.button_layout, self.custom_command_layout]:
-                for i in range(layout.count()):
-                    widget = layout.itemAt(i).widget()
-                    if widget is not None:
-                        widget.setStyleSheet("color: gray;")
-        elif platform.system() == "Windows":
-            # Reset the style to default when enabled
-            self.tabs_layout_widget.setStyleSheet("")
-            for layout in [self.button_layout, self.custom_command_layout]:
-                for i in range(layout.count()):
-                    widget = layout.itemAt(i).widget()
-                    if widget is not None:
-                        widget.setStyleSheet("")
+        # if not enabled:
+        #     self.tabs_layout_widget.setStyleSheet("color: gray;")
+        #     for layout in [self.button_layout, self.custom_command_layout]:
+        #         for i in range(layout.count()):
+        #             widget = layout.itemAt(i).widget()
+        #             if widget is not None:
+        #                 widget.setStyleSheet("color: gray;")
+        #     # Reset the style to default when enabled
+        #     self.tabs_layout_widget.setStyleSheet("")
+        #     for layout in [self.button_layout, self.custom_command_layout]:
+        #         for i in range(layout.count()):
+        #             widget = layout.itemAt(i).widget()
+        #             if widget is not None:
+        #                 widget.setStyleSheet("")
 
     def valid_connection(self) -> bool:
         if not validate_ip(self.host_input.text()) or not validate_port(
@@ -589,10 +588,6 @@ class ProjectorController(QWidget):
 
 
 class MainWindow(QMainWindow):
-    # os.environ["QT_SCALE_FACTOR"] = "1.0"
-    # QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
-    # # Enable High DPI Scaling
-    # QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
 
     def __init__(self):
         super().__init__()
@@ -634,15 +629,15 @@ class MainWindow(QMainWindow):
         central_widget.setLayout(main_layout)
         recommended_size = central_widget.sizeHint()
         print(f"Recommended size: {recommended_size.width()} x {recommended_size.height()}")
-        self.resize(588, 800)
+  
         self.setMaximumSize(588, 900)
+        self.resize(588, 800)
         self.setCentralWidget(central_widget)
-
         self.tab_widget.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tab_widget.customContextMenuRequested.connect(self.show_context_menu)
 
+
     def set_dark_theme(self):
-        if platform.system() == "Windows":
             self.setStyleSheet("""
                 QWidget { background-color: #2d2d2d; color: #dcdcdc; }
                 QLineEdit, QTextEdit { background-color: #3c3c3c; color: #dcdcdc; border: 1px solid #5c5c5c; }
@@ -691,21 +686,34 @@ class MainWindow(QMainWindow):
             print(f'saving tab: {tab_name}: {host}, {port}, {projector_id}')
 
     def add_new_tab(self):
-        tab_count = self.tab_widget.count() + 1
-        self.add_projector_controller(f"Projector {tab_count}", host='172.18.41.12', port='23', projector_id='01')
+        next_index = self.tab_widget.count() + 1
+        new_tab_name = f"Projector {next_index}"
+        self.add_projector_controller(new_tab_name, host='172.18.41.12', port='23', projector_id='01')
 
     def show_context_menu(self, position):
+        # Get the index of the tab at the position where the context menu was requested
+        tab_index = self.tab_widget.tabBar().tabAt(position)
+        if tab_index == -1:
+            return  # No tab under the context menu position
+
         menu = QMenu()
         remove_action = menu.addAction("Remove Tab")
         action = menu.exec_(self.tab_widget.mapToGlobal(position))
+
         if action == remove_action:
-            self.remove_current_tab()
+            self.remove_tab(tab_index)
 
-    def remove_current_tab(self):
-        current_index = self.tab_widget.currentIndex()
-        if current_index != -1:
-            self.tab_widget.removeTab(current_index)
+    def remove_tab(self, index):
+        if index != -1:
+            self.tab_widget.removeTab(index)
+            self.renumber_tabs()
 
+    def renumber_tabs(self):
+        # Renumber tabs after removing one to maintain order
+        for i in range(self.tab_widget.count()):
+            new_name = f"Projector {i + 1}"
+            self.tab_widget.setTabText(i, new_name)
+            
     def closeEvent(self, event):
         self.save_tabs()
         event.accept()
@@ -723,19 +731,30 @@ class MainWindow(QMainWindow):
             tab.send_command(system_buttons['Power Off'])
 
 
+os.environ["QT_QPA_PLATFORM"] = "windows:darkmode=2"
 os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
 QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
 # Enable High DPI Scaling
 QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+QCoreApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+QCoreApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
 
-QCoreApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
 if __name__ == '__main__':
-
+    if platform.system() == "Windows":
+        qdarktheme.enable_hi_dpi()
     app = QApplication(sys.argv)
-
+    print(QStyleFactory.keys())
+    print(QApplication.style().objectName())
+    print(QApplication.style().metaObject().className())
+    print(QApplication.style().metaObject())
+    if platform.system() == "Windows":
+        qdarktheme.setup_theme("auto")  # Set up the dark theme after QApplication is created
     main_window = MainWindow()
+    main_window.show()
     if platform.system() == "Windows":
         # Set the icon for the entire application (not needed for py2app)
         app.setWindowIcon(QIcon("icon.png"))
-    main_window.show()
-    sys.exit(app.exec_())
+
+
+
+sys.exit(app.exec_())
