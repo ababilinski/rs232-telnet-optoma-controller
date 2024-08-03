@@ -6,7 +6,10 @@ DATA_FILES = []
 OPTIONS = {
     'iconfile': 'data/icon.icns',
     'argv_emulation': False,
-    'includes': ['PyQt5.QtCore', 'telnetlib', 'PyQt5','os','commands', 'telnet_worker', 'validation_utils'],  # List all packages needed
+    'includes': ['PyQt5.QtGui','libffi','PyQt5.QtCore','PyQt5.QtWidgets', 'telnetlib', 'PyQt5','os','commands', 'telnet_worker', 'validation_utils'
+    'platform','sys'],
+    'packages': ['PyQt5', 'os', 'platform'],
+    # List all packages needed
     'plist': {
         'CFBundleName': APP_NAME,
         'CFBundleDisplayName': APP_NAME,
